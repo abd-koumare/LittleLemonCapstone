@@ -15,8 +15,20 @@ class MainActivity : ComponentActivity() {
 
             val navController = rememberNavController()
 
+
+            val context = applicationContext.getSharedPreferences(SHARED_PREFS_NAME, MODE_PRIVATE)
+            val firstName = context.getString(FIRST_NAME_KEY, "").toString()
+            val lastName = context.getString(LAST_NAME_KEY, "").toString()
+            val email = context.getString(EMAIL_KEY, "").toString()
+
+
             LittleLemonTheme {
-                Navigation(navController = navController, startDestination = Home.route)
+
+                if ( email.isNotBlank() && lastName.isNotBlank() && firstName.isNotBlank()) {
+                    Navigation(navController = navController, startDestination = Home.route)
+                } else {
+                    Navigation(navController = navController, startDestination = Onboarding.route)
+                }
             }
         }
     }
