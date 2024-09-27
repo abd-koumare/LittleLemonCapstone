@@ -1,6 +1,9 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
+    kotlin("kapt")
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.1.0-Beta1"
+    id("org.jetbrains.kotlin.plugin.compose") version "2.0.20"
 }
 
 android {
@@ -61,6 +64,16 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.navigation.runtime.ktx)
     implementation(libs.androidx.navigation.compose)
+    implementation ("io.ktor:ktor-client-android:2.3.12")
+    implementation ("io.ktor:ktor-client-content-negotiation:2.3.12")
+    implementation ("io.ktor:ktor-serialization-kotlinx-json:2.3.12")
+    implementation (libs.androidx.lifecycle.livedata.ktx)
+    implementation ("androidx.room:room-runtime:2.6.1")
+    implementation(libs.androidx.runtime.livedata)
+    kapt ("androidx.room:room-compiler:2.6.1")
+
+    implementation ("com.github.bumptech.glide:compose:1.0.0-beta01")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
