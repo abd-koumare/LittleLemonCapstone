@@ -1,5 +1,6 @@
 package com.koogin.littlelemon
 
+import android.util.Log
 import android.widget.ImageView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -19,9 +20,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -29,7 +33,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,7 +56,7 @@ import io.ktor.client.request.get
 import io.ktor.http.ContentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun Home(navController: NavHostController) {
@@ -61,14 +64,11 @@ fun Home(navController: NavHostController) {
         "https://raw.githubusercontent.com/Meta-Mobile-Developer-PC/Working-With-Data-API/main/menu.json"
     val context = LocalContext.current
 
-    val categories = listOf("Starters", "Mains", "Desserts", "Drinks")
+    val categories = listOf("All", "Starters", "Mains", "Desserts", "Drinks")
 
     val database by lazy {
         AppDatabase.getDatabase(context)
     }
-
-    val menuItems = database.menuItemDao().getAll().observeAsState(emptyList())
-
 
     val client = HttpClient(Android) {
         install(ContentNegotiation) {
@@ -76,9 +76,7 @@ fun Home(navController: NavHostController) {
         }
     }
 
-
     suspend fun getMenu(): List<MenuItemNetwork> {
-
         val response = client.get(url).body<MenuNetworkData>()
         return response.menu
     }
@@ -89,8 +87,17 @@ fun Home(navController: NavHostController) {
     }
 
 
-    val coroutineScope = rememberCoroutineScope()
+    val menuItems = database.menuItemDao().getAll().observeAsState(initial = emptyList())
 
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            if (database.menuItemDao().isEmpty()) {
+                val menuItemsNetwork = getMenu()
+                saveMenuToDatabase(menuItemsNetwork)
+            }
+
+        }
+    }
 
 
 
@@ -143,6 +150,14 @@ fun Home(navController: NavHostController) {
     { innerPadding ->
 
 
+        val searchPhrase = rememberSaveable {
+            mutableStateOf("")
+        }
+
+        val currentCategory = rememberSaveable {
+            mutableStateOf("")
+        }
+
         Column(
             modifier = Modifier
                 .padding(innerPadding)
@@ -193,17 +208,20 @@ fun Home(navController: NavHostController) {
                     )
                 }
 
-                val searchPhrase = rememberSaveable {
-                    mutableStateOf("")
-                }
+
 
                 TextField(
                     placeholder = { Text("Enter search phrase") },
                     value = searchPhrase.value,
                     maxLines = 1,
-                    onValueChange = { newValue ->
-                        searchPhrase.value = newValue
-                        menuItems.value.filter { it.title.contains(searchPhrase.value) }
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "search icon"
+                        )
+                    },
+                    onValueChange = {
+                        searchPhrase.value = it
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -227,10 +245,10 @@ fun Home(navController: NavHostController) {
                     items(categories) { category ->
                         Button(
                             onClick = {
-                                 menuItems.value.filter { it.category == category }
+                                currentCategory.value = if(category == "All") "" else category.lowercase()
                             },
                             colors = ButtonDefaults.buttonColors(Color(0xFFD9D9D9)),
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(20.dp),
                             modifier = Modifier.padding(end = 16.dp)
                         ) {
                             Text(
@@ -248,30 +266,38 @@ fun Home(navController: NavHostController) {
                 HorizontalDivider(color = Color(0xFFAFAFAF), thickness = 1.dp)
             }
 
-            LaunchedEffect(Unit) {
-                coroutineScope.launch(Dispatchers.IO) {
-                    if (database.menuItemDao().isEmpty()) {
-                        val menuItemsNetwork = getMenu()
-                        saveMenuToDatabase(menuItemsNetwork)
-                    }
-                }
-            }
 
-            LazyColumn(modifier = Modifier.padding(horizontal = 16.dp)) {
-                items(menuItems.value) { menuItem ->
-                    MenuItem(
-                        title = menuItem.title,
-                        description = menuItem.description,
-                        price = menuItem.price,
-                        image = menuItem.image,
-                    )
-                    HorizontalDivider(color = Color(0xFFAFAFAF), thickness = 1.dp)
+            MenuItemList(
+                menuItems = menuItems.value.filter { item ->
+                    val categoryMatch = currentCategory.value.isEmpty() || item.category == currentCategory.value
+                    val searchMatch = searchPhrase.value.isBlank() || item.title.contains(searchPhrase.value, ignoreCase = true)
+                    Log.d("search phrase", searchPhrase.value)
+                    categoryMatch && searchMatch
                 }
-            }
+            )
+
         }
     }
 }
 
+
+@Composable
+fun MenuItemList(menuItems: List<MenuItemRoom>) {
+    LazyColumn(modifier = Modifier.padding(horizontal = 16.dp)) {
+        items(
+            items = menuItems,
+            itemContent = { menuItem ->
+                MenuItem(
+                    title = menuItem.title,
+                    description = menuItem.description,
+                    price = menuItem.price,
+                    image = menuItem.image,
+                )
+                HorizontalDivider(color = Color(0xFFAFAFAF), thickness = 1.dp)
+            },
+        )
+    }
+}
 
 @Composable
 fun MenuItem(title: String, description: String, price: String, image: String) {
