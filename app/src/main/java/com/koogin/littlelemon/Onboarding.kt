@@ -122,7 +122,7 @@ fun Onboarding(navController: NavHostController) {
                             .putString(MainActivity.EMAIL_KEY, email.value).apply()
 
                         Toast.makeText(context, "Registration successful!", Toast.LENGTH_SHORT).show()
-                        navController.navigate(Profile.route)
+                        navController.navigate(Home.route)
                     }
                 },
                 modifier = Modifier
